@@ -85,3 +85,6 @@ desktop.ini
 *.db
 *.pid
 *.seed
+
+# 校验脚本的临时打包产物（scripts/verify.mts 为源文件）
+frontend/scripts/verify.mjs

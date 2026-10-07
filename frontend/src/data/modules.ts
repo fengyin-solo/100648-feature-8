@@ -33,6 +33,12 @@ export const MODULES: ModuleMeta[] = [
     statuses: ["待点火", "运行中", "已停炉", "故障停炉"],
     actions: ["提交点火", "登记停炉", "上报故障"],
     actionTargets: {"提交点火": "运行中", "登记停炉": "已停炉", "上报故障": "故障停炉"},
+    // 炉况只能顺着走：待点火 → 运行中 → 已停炉；故障停炉是运行中的分支，故障后仍须登记停炉收尾。
+    actionSources: {"提交点火": ["待点火"], "上报故障": ["运行中"], "登记停炉": ["运行中", "故障停炉"]},
+    terminalStatuses: ["已停炉"],
+    upsertKey: "运行编号",
+    editableFields: ["炉膛温度", "炉膛负压", "给料速率"],
+    statusField: "炉况状态",
     metrics: ["运行中炉次", "已停炉炉次", "故障停炉数"],
   },
   {
@@ -44,6 +50,7 @@ export const MODULES: ModuleMeta[] = [
     statuses: ["待投运", "运行中", "已停运", "检修中"],
     actions: ["提交投运", "登记停运", "安排检修"],
     actionTargets: {"提交投运": "运行中", "登记停运": "已停运", "安排检修": "检修中"},
+    statusField: "锅炉状态",
     metrics: ["运行中锅炉", "已停运锅炉", "检修中锅炉"],
   },
   {
