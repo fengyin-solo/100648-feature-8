@@ -8,26 +8,38 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
 
+function storageAvailable(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.localStorage)
+}
+
+// cache 就是「上一次存好的版本」：任何时候读取失败都退回它，绝不清空成示例数据。
+let cache: Record<string, EntryRow[]> | null = null
+
 function readStorage(): Record<string, EntryRow[]> {
   const fallback = clone(SEED_ROWS)
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return fallback
+  if (!storageAvailable()) {
+    return cache ?? fallback
   }
   const raw = window.localStorage.getItem(STORAGE_KEY)
   if (!raw) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback))
+    // 第一次打开：播种示例数据。写不进去也只影响这次会话，下次再试。
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback))
+    } catch {
+      // 存储不可用（隐私模式等），先按示例数据跑。
+    }
     return fallback
   }
   try {
     const parsed = JSON.parse(raw) as Record<string, EntryRow[]>
-    return { ...fallback, ...parsed }
+    const merged = { ...fallback, ...parsed }
+    cache = merged
+    return merged
   } catch {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fallback))
-    return fallback
+    // 存进去的那份读不出来：退回上一次存好的版本，不要拿示例数据盖掉它。
+    return cache ?? fallback
   }
 }
-
-let cache: Record<string, EntryRow[]> | null = null
 
 export function allRows(): Record<string, EntryRow[]> {
   if (cache === null) {
@@ -42,10 +54,15 @@ export function listRows(key: string): EntryRow[] {
 
 export function saveRows(key: string, rows: EntryRow[]): void {
   const next = { ...allRows(), [key]: rows }
-  cache = next
-  if (typeof window !== 'undefined' && window.localStorage) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  if (storageAvailable()) {
+    const payload = JSON.stringify(next)
+    // 先写进存储再更新内存：写不进去就抛错，内存里保持上一次存好的版本。
+    window.localStorage.setItem(STORAGE_KEY, payload)
+    if (window.localStorage.getItem(STORAGE_KEY) !== payload) {
+      throw new Error('本地存储写入后校验不一致，本次修改未保存')
+    }
   }
+  cache = next
 }
 
 export function resetRows(key: string): EntryRow[] {
